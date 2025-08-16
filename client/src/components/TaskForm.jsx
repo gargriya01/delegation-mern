@@ -1,41 +1,67 @@
-import React, { useEffect, useState } from 'react';
-import { API } from '../api.js';
+import { useEffect, useRef, useState } from "react";
+import API from "../api";   // ✅ Correct
 
-export default function TaskForm({ onCreated }) {
-  const [doers, setDoers] = useState([]);
-  const [form, setForm] = useState({ title: '', description: '', audioNoteUrl: '', dueAt: '', doer: '' });
+export default function TaskForm() {
+  const [users, setUsers] = useState([]);
+  const [description, setDescription] = useState("");
+  const [plannedTime, setPlannedTime] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [audioUrl, setAudioUrl] = useState("");
+  const mediaRef = useRef(null);
+  const chunksRef = useRef([]);
 
-  useEffect(() => {
-    API.get('/users/doers').then((res) => setDoers(res.data));
-  }, []);
+  useEffect(() => { api.get("/users").then(r=>setUsers(r.data)); }, []);
+
+  const startRec = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRef.current = new MediaRecorder(stream);
+    chunksRef.current = [];
+    mediaRef.current.ondataavailable = e => chunksRef.current.push(e.data);
+    mediaRef.current.onstop = async () => {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const file = new File([blob], "note.webm", { type: "audio/webm" });
+      const fd = new FormData(); fd.append("audio", file);
+      const { data } = await api.post("/uploads/audio", fd, { headers: { "Content-Type":"multipart/form-data" }});
+      setAudioUrl(data.url);
+    };
+    mediaRef.current.start();
+  };
+  const stopRec = () => mediaRef.current?.state === "recording" && mediaRef.current.stop();
 
   const submit = async (e) => {
     e.preventDefault();
-    const payload = { ...form, dueAt: form.dueAt ? new Date(form.dueAt) : null };
-    const { data } = await API.post('/tasks', payload);
-    onCreated?.(data);
-    setForm({ title: '', description: '', audioNoteUrl: '', dueAt: '', doer: '' });
+    await api.post("/tasks", { description, plannedTime, assignee, audioUrl });
+    setDescription(""); setPlannedTime(""); setAssignee(""); setAudioUrl("");
+    alert("Task created");
   };
 
   return (
-    <form onSubmit={submit} style={{ border: '1px solid #eee', padding: 12, borderRadius: 8 }}>
-      <h3>Delegate Task</h3>
-      <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-      <br />
-      <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-      <br />
-      <input placeholder="Audio Note URL (optional)" value={form.audioNoteUrl} onChange={(e) => setForm({ ...form, audioNoteUrl: e.target.value })} />
-      <br />
-      <input type="datetime-local" value={form.dueAt} onChange={(e) => setForm({ ...form, dueAt: e.target.value })} />
-      <br />
-      <select value={form.doer} onChange={(e) => setForm({ ...form, doer: e.target.value })} required>
-        <option value="">Select Doer</option>
-        {doers.map((d) => (
-          <option key={d._id} value={d._id}>{d.name} – {d.email}</option>
-        ))}
-      </select>
-      <br />
-      <button type="submit">Create Task</button>
+    <form onSubmit={submit}>
+      <h3>Task Delegation</h3>
+      <div className="form-row">
+        <label>Task Description</label>
+        <input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Enter task description" required/>
+      </div>
+      <div className="form-row">
+        <label>Date & Time to Accomplish</label>
+        <input type="datetime-local" value={plannedTime} onChange={e=>setPlannedTime(e.target.value)} required/>
+      </div>
+      <div className="form-row">
+        <label>Assign To (Doer)</label>
+        <select required value={assignee} onChange={e=>setAssignee(e.target.value)}>
+          <option value="">Select a doer...</option>
+          {users.map(u => <option key={u._id} value={u._id}>{u.name} ({u.email})</option>)}
+        </select>
+      </div>
+      <div className="form-row">
+        <label>Audio Note</label>
+        <div className="row-actions">
+          <button className="btn" type="button" onClick={startRec}>Start Recording</button>
+          <button className="btn" type="button" onClick={stopRec}>Stop</button>
+          {audioUrl && <span className="badge">Recorded</span>}
+        </div>
+      </div>
+      <button className="btn" type="submit">Submit Task</button>
     </form>
   );
 }

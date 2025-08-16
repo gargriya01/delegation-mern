@@ -1,40 +1,42 @@
 import mongoose from "mongoose";
+import Counter from "./Counter.js";
 
-const actionSchema = new mongoose.Schema(
-  {
-    type: {
-      type: String,
-      enum: ["created", "completed", "revised"],
-      required: true,
-    },
-    by: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    note: String,
-    at: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
+const timelineSchema = new mongoose.Schema({
+  action: String, // created | completed | revised | viewed | updated
+  by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  at: { type: Date, default: Date.now },
+  note: String,
+});
 
 const taskSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: String,
-    audioNoteUrl: String,
-    dueAt: Date,
-    assigner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    doer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    taskId: String, // e.g., TASK-0007
+    description: { type: String, required: true },
+    plannedTime: Date,
+    assignee: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    assignerEmail: String,
+    audioUrl: String,
     status: {
       type: String,
-      enum: ["pending", "completed", "revision_requested"],
-      default: "pending",
+      enum: ["Pending", "In Progress", "Completed", "Revised"],
+      default: "Pending",
     },
     completedAt: Date,
-    actions: [actionSchema],
+    revisedAt: Date,
+    timeline: [timelineSchema],
   },
   { timestamps: true }
 );
+
+taskSchema.pre("save", async function (next) {
+  if (this.taskId) return next();
+  const c = await Counter.findOneAndUpdate(
+    { key: "task" },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true }
+  );
+  this.taskId = `TASK-${String(c.seq).padStart(4, "0")}`;
+  next();
+});
 
 export default mongoose.model("Task", taskSchema);

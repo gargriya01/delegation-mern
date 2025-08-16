@@ -1,32 +1,36 @@
 import express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
 import dotenv from "dotenv";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import taskRoutes from "./routes/tasks.js";
+import uploadRoutes from "./routes/uploads.js";
 
 dotenv.config();
-
 const app = express();
-app.use(express.json({ limit: "10mb" }));
-app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
 
-app.get("/", (req, res) => res.send("Delegation API running"));
+app.use(cors());
+app.use(express.json());
+
+// serve uploaded audio
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/uploads", uploadRoutes);
 
-const start = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
+mongoose
+  .connect(process.env.DB_URI)
+  .then(() => {
     app.listen(process.env.PORT, () =>
-      console.log(`API on http://localhost:${process.env.PORT}`)
+      console.log(`API running on http://localhost:${process.env.PORT}`)
     );
-  } catch (e) {
-    console.error("DB connection failed", e);
-    process.exit(1);
-  }
-};
-start();
+  })
+  .catch((err) => console.error("Mongo error:", err));

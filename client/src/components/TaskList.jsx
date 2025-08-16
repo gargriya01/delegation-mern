@@ -1,5 +1,5 @@
 import React from 'react';
-import { API } from '../api.js';
+import API from "../api";   // ✅ Correct
 
 export default function TaskList({ tasks, refresh }) {
   const act = async (id, action) => {

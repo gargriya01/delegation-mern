@@ -1,71 +1,90 @@
-import { Router } from "express";
+import express from "express";
+import auth from "../middleware/auth.js";
+import { adminOnly } from "../middleware/roles.js";
 import Task from "../models/Task.js";
-import { auth } from "../middleware/auth.js";
-import { requireRole } from "../middleware/roles.js";
+import { startOfDay, endOfDay, addDays } from "date-fns";
 
-const router = Router();
+const router = express.Router();
 
-// Admin: create task
-router.post("/", auth, requireRole("admin"), async (req, res) => {
-  const { title, description, audioNoteUrl, dueAt, doer } = req.body;
-  const task = await Task.create({
-    title,
+// Admin create task (Step 4/5)
+router.post("/", auth, adminOnly, async (req, res) => {
+  const { description, plannedTime, assignee, audioUrl } = req.body;
+  const t = new Task({
     description,
-    audioNoteUrl,
-    dueAt,
-    assigner: req.user.id,
-    doer,
-    actions: [{ type: "created", by: req.user.id }],
+    plannedTime,
+    assignee,
+    audioUrl,
+    assignerEmail: req.user.email,
+    timeline: [{ action: "created", by: req.user.id }],
   });
-  res.json(task);
+  await t.save();
+  res.status(201).json(t);
 });
 
-// Admin: list all (with filters)
-router.get("/", auth, requireRole("admin"), async (req, res) => {
+// Admin: all tasks (Step 6)
+router.get("/", auth, adminOnly, async (req, res) => {
   const { status } = req.query;
-  const q = {};
-  if (status) q.status = status;
-  const tasks = await Task.find(q)
-    .populate("assigner", "name email")
-    .populate("doer", "name email")
-    .sort("-createdAt");
+  const filter = status ? { status } : {};
+  const tasks = await Task.find(filter)
+    .populate("assignee", "name email")
+    .sort({ createdAt: -1 });
   res.json(tasks);
 });
 
-// User: my tasks
-router.get("/mine", auth, async (req, res) => {
-  const q = req.user.role === "admin" ? {} : { doer: req.user.id };
-  const tasks = await Task.find(q)
-    .populate("assigner", "name email")
-    .populate("doer", "name email")
-    .sort("-createdAt");
+// User: my tasks list (Step 7 user-side)
+router.get("/my", auth, async (req, res) => {
+  const tasks = await Task.find({ assignee: req.user.id }).sort({
+    createdAt: -1,
+  });
   res.json(tasks);
 });
 
-// User: complete task
-router.post("/:id/complete", auth, async (req, res) => {
-  const task = await Task.findById(req.params.id);
-  if (!task) return res.status(404).json({ message: "Not found" });
-  if (req.user.role !== "admin" && String(task.doer) !== req.user.id)
-    return res.status(403).json({ message: "Forbidden" });
-  task.status = "completed";
-  task.completedAt = new Date();
-  task.actions.push({ type: "completed", by: req.user.id });
-  await task.save();
-  res.json(task);
+// Follow-up filters (today / next7 / all) (Step 7 top buttons)
+router.get("/followup", auth, adminOnly, async (req, res) => {
+  const { range } = req.query; // 'today' | 'next7' | 'all'
+  let q = {};
+  if (range === "today")
+    q.plannedTime = {
+      $gte: startOfDay(new Date()),
+      $lte: endOfDay(new Date()),
+    };
+  if (range === "next7")
+    q.plannedTime = {
+      $gte: new Date(),
+      $lte: endOfDay(addDays(new Date(), 7)),
+    };
+  const tasks = await Task.find(q).populate("assignee", "name email");
+  res.json(tasks);
 });
 
-// User: request revision
-router.post("/:id/revise", auth, async (req, res) => {
-  const { note } = req.body;
-  const task = await Task.findById(req.params.id);
-  if (!task) return res.status(404).json({ message: "Not found" });
-  if (req.user.role !== "admin" && String(task.doer) !== req.user.id)
-    return res.status(403).json({ message: "Forbidden" });
-  task.status = "revision_requested";
-  task.actions.push({ type: "revised", by: req.user.id, note });
-  await task.save();
-  res.json(task);
+// Mark complete (Step 7 action)
+router.put("/:id/complete", auth, async (req, res) => {
+  const t = await Task.findByIdAndUpdate(
+    req.params.id,
+    {
+      status: "Completed",
+      completedAt: new Date(),
+      $push: { timeline: { action: "completed", by: req.user.id } },
+    },
+    { new: true }
+  );
+  res.json(t);
+});
+
+// Add re-issue / revise (Step 7 action)
+router.put("/:id/revise", auth, async (req, res) => {
+  const t = await Task.findByIdAndUpdate(
+    req.params.id,
+    {
+      status: "Revised",
+      revisedAt: new Date(),
+      $push: {
+        timeline: { action: "revised", by: req.user.id, note: req.body.note },
+      },
+    },
+    { new: true }
+  );
+  res.json(t);
 });
 
 export default router;

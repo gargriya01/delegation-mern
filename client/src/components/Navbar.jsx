@@ -1,25 +1,30 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { auth, logout } = useAuth();
+  const { pathname } = useLocation();
+  const Tab = ({ to, children }) => (
+    <Link className={`tab ${pathname === to ? "active" : ""}`} to={to}>{children}</Link>
+  );
+
   return (
-    <nav style={{ padding: 12, borderBottom: '1px solid #ddd' }}>
-      <Link to="/">Home</Link>
-      <span style={{ margin: '0 12px' }}>|</span>
-      {user?.role === 'admin' && <Link to="/admin">Admin</Link>}
-      {user?.role === 'user' && <Link to="/me">My Tasks</Link>}
-      <span style={{ float: 'right' }}>
-        {user ? (
-          <>
-            <strong style={{ marginRight: 8 }}>{user.name} ({user.role})</strong>
-            <button onClick={logout}>Logout</button>
-          </>
-        ) : (
-          <Link to="/login">Login</Link>
-        )}
-      </span>
-    </nav>
+    <div className="navbar">
+      {auth?.user?.role === "admin" && (
+        <>
+          <Tab to="/dashboard">Task Dashboard</Tab>
+          <Tab to="/follow-up">Task Follow Up</Tab>
+          <Tab to="/doers">Doer Management</Tab>
+          <Tab to="/admin">Delegate Task</Tab>
+        </>
+      )}
+      {auth?.user?.role === "user" && <Tab to="/user">My Tasks</Tab>}
+      <div className="spacer" />
+      {auth ? (
+        <button className="btn" onClick={logout}>Logout</button>
+      ) : (
+        <Link className="btn" to="/login">Login</Link>
+      )}
+    </div>
   );
 }

@@ -1,27 +1,22 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useState } from "react";
+import api from "../api";
 
-const AuthCtx = createContext(null);
+const Ctx = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
-  });
+  const [auth, setAuth] = useState(() => JSON.parse(localStorage.getItem("auth") || "null"));
 
-  const login = ({ token, user }) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+  const login = async (email, password) => {
+    const { data } = await api.post("/auth/login", { email, password });
+    setAuth(data);
+    localStorage.setItem("auth", JSON.stringify(data));
+    return data;
   };
-
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+    setAuth(null);
+    localStorage.removeItem("auth");
   };
 
-  const value = useMemo(() => ({ user, login, logout }), [user]);
-  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+  return <Ctx.Provider value={{ auth, login, logout }}>{children}</Ctx.Provider>;
 };
-
-export const useAuth = () => useContext(AuthCtx);
+export const useAuth = () => useContext(Ctx);

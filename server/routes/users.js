@@ -1,36 +1,40 @@
-import { Router } from "express";
+import express from "express";
+import auth from "../middleware/auth.js";
+import { adminOnly } from "../middleware/roles.js";
 import User from "../models/User.js";
-import { auth } from "../middleware/auth.js";
-import { requireRole } from "../middleware/roles.js";
 
-const router = Router();
+const router = express.Router();
 
-// Admin: list doers
-router.get("/doers", auth, requireRole("admin"), async (req, res) => {
-  const doers = await User.find({ role: "user", active: true }).select(
-    "-password"
+// list doers (no password)
+router.get("/", auth, adminOnly, async (_req, res) => {
+  const users = await User.find({}, "-password").sort({ createdAt: -1 });
+  res.json(users);
+});
+
+// add doer
+router.post("/", auth, adminOnly, async (req, res) => {
+  const { name, email } = req.body;
+  const tempPwd = "welcome123";
+  const user = new User({ name, email, role: "user", password: tempPwd });
+  await user.save();
+  res.status(201).json({ id: user._id, name: user.name, email: user.email });
+});
+
+// edit doer
+router.put("/:id", auth, adminOnly, async (req, res) => {
+  const { name, email } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { name, email },
+    { new: true, select: "-password" }
   );
-  res.json(doers);
+  res.json(user);
 });
 
-// Admin: create doer
-router.post("/doers", auth, requireRole("admin"), async (req, res) => {
-  const { name, email, password } = req.body;
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ message: "Email exists" });
-  const doer = await User.create({ name, email, password, role: "user" });
-  res.json({ id: doer._id });
+// delete doer
+router.delete("/:id", auth, adminOnly, async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
 });
-
-// Admin: deactivate doer
-router.patch(
-  "/doers/:id/deactivate",
-  auth,
-  requireRole("admin"),
-  async (req, res) => {
-    await User.findByIdAndUpdate(req.params.id, { active: false });
-    res.json({ ok: true });
-  }
-);
 
 export default router;

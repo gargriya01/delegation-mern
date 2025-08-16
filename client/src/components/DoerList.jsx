@@ -1,38 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { API } from '../api.js';
+import { useState } from "react";
+import api from "../api";
 
-export default function DoerList() {
-  const [doers, setDoers] = useState([]);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+export default function DoerList({ doers, onChanged }) {
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ name: "", email: "" });
 
-  const load = async () => {
-    const { data } = await API.get('/users/doers');
-    setDoers(data);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const add = async (e) => {
-    e.preventDefault();
-    await API.post('/users/doers', form);
-    setForm({ name: '', email: '', password: '' });
-    load();
-  };
+  const startEdit = (d) => { setEditing(d._id); setForm({ name: d.name, email: d.email }); };
+  const save = async (id) => { await api.put(`/users/${id}`, form); setEditing(null); onChanged(); };
+  const remove = async (id) => { if (confirm("Delete doer?")) { await api.delete(`/users/${id}`); onChanged(); } };
 
   return (
-    <div style={{ border: '1px solid #eee', padding: 12, borderRadius: 8 }}>
-      <h3>Doers</h3>
-      <form onSubmit={add}>
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-        <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-        <input placeholder="Temp Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-        <button type="submit">Add Doer</button>
-      </form>
-      <ul>
-        {doers.map((d) => (
-          <li key={d._id}>{d.name} – {d.email}</li>
-        ))}
-      </ul>
-    </div>
+    <table className="table">
+      <thead><tr><th>Doer Name</th><th>Doer Email</th><th>Actions</th></tr></thead>
+      <tbody>
+      {doers.map(d => (
+        <tr key={d._id}>
+          <td>{editing===d._id ? <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/> : d.name}</td>
+          <td>{editing===d._id ? <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/> : d.email}</td>
+          <td className="row-actions">
+            {editing===d._id ? (
+              <>
+                <button className="btn" onClick={()=>save(d._id)}>Save</button>
+                <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <button className="btn" onClick={()=>startEdit(d)}>Edit</button>
+                <button className="btn" onClick={()=>remove(d._id)}>Delete</button>
+              </>
+            )}
+          </td>
+        </tr>
+      ))}
+      </tbody>
+    </table>
   );
 }
