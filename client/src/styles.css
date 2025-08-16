@@ -1,0 +1,111 @@
+body {
+    margin: 0;
+    font-family: system-ui, Arial;
+    background: #eee;
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 10px 16px;
+    background: #0a53a8;
+    color: #fff;
+}
+
+.navbar .tab {
+    color: #e8f1ff;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.navbar .tab.active,
+.navbar .tab:hover {
+    background: #2196f3;
+    color: #fff;
+}
+
+.navbar .spacer {
+    flex: 1;
+}
+
+.btn {
+    background: #fff;
+    color: #0a53a8;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.page {
+    padding: 28px;
+    display: flex;
+    justify-content: center;
+}
+
+.card {
+    background: #fff;
+    width: min(680px, 92vw);
+    border-radius: 10px;
+    padding: 22px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .12);
+}
+
+.card h2 {
+    text-align: center;
+    margin: 8px 0 18px;
+}
+
+.form-row {
+    margin-bottom: 12px;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.table th,
+.table td {
+    padding: 10px;
+    border-bottom: 1px solid #ececec;
+    text-align: left;
+}
+
+.badge {
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e8f0ff;
+    color: #0a53a8;
+}
+
+.row-actions button {
+    margin-right: 6px;
+}
+
+.filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
